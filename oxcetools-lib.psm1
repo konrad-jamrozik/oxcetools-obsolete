@@ -64,7 +64,14 @@ function Read-KeyValue([string] $line, [string[]] $keysIncluded, [hashtable] $it
 function Read-LineData([string] $line) {
 
     ($key, $valueString, $type) = if ($line.StartsWith(" ")) {
-        ("-", ($line -replace "- ").Trim(), "listItem") 
+
+        if ($line.Contains("- ")) {
+            ("-", ($line -replace "- ").Trim(), "listItem") 
+        } elseif ($line.Contains(": ")) {
+            $keyValuePair = $line.Trim() -split ": "
+            $key = $keyValuePair[0]
+            ($key, $line.Trim().Substring(($key + ": ").Length), "listItem")
+        } else { throw "Invalid case!"}
     } elseif ($line.Contains(": ")) {
         $keyValuePair = $line -split ": "
         $key = $keyValuePair[0]
@@ -92,7 +99,9 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
 
     $lines = $lines 
         | Where-Object { !($_.StartsWith("#")) } # Remove comments
-        | ForEach-Object { $_.Substring(4).TrimEnd() }
+        | Where-Object { $_.Length -ge 4 }
+        | ForEach-Object { 
+            $_.Substring(4).TrimEnd() }
 
     # If categories are missing
     if ($lines.Count -lt 2) { return $null }
@@ -114,7 +123,7 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
 
     $lineData = $lines[2..$lines.Length] | ForEach-Object { ,@(Read-LineData $_) }
 
-    $ht = @{}
+    $ht = @{ "name" = $name; "categories" = $categories }
     $listMode = $false
     $listKey = ""
     $list = @{}
@@ -123,12 +132,30 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
         ($key, $value, $type) = $lineData[$i]
 
         if ($type -eq "listHeader") {
+            if ($listMode -eq $true) {
+                $ht += @{ $listKey = $list }
+            }
+            $listMode = $true
             $listKey = $key
             $list = @{}
+            if ($key -eq "compatibleAmmo") {
+                Write-Host "deb"
+            }
+        }
+
+        if ($type -eq "listItem") {
+            if ($listMode -eq $false) { throw "Invalid state!" }
+
+            $list += @{ $key = $value }
         }
 
         if ($type -eq "keyValue") {
-            $ht += @{ $key = $value }
+            if ($listMode -eq $true) {
+                $ht += @{ $listKey = $list }
+                $listMode = $false
+            } else {
+                $ht += @{ $key = $value }
+            }
         }
     }
 
@@ -141,7 +168,7 @@ function Read-ItemsDebug()
     $StartTime = Get-Date
     [string[]] $categoriesIncluded = @("STR_CONCEALABLE")
     
-    [string[]] $categoriesExcluded = @("")
+    [string[]] $categoriesExcluded = @("STR_MELEE", "STR_GRENADES")
 
     $itemsRulFilePath = "$HOME\OneDrive\Documents\OpenXcom\mods\XComFiles\Ruleset\items_XCOMFILES.rul"
     $itemsRulLines = Get-Content $itemsRulFilePath
