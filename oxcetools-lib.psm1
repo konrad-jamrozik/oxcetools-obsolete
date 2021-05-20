@@ -61,4 +61,56 @@ function Read-KeyValue([string] $line, [string[]] $keysIncluded, [hashtable] $it
     $item.$key = $value
 }
 
+function Read-Item([string[]] $lines, [hashtable] $item) {
+
+    if ($lines.Count -lt 1) {
+        throw "Expected for the item being read to have at least one line"
+    }
+
+    if ($lines[0].Trim().StartsWith("- type: '")) {
+        throw "Expected for the first line to start with '- type: '. Instead got: $($lines[0])"
+    }
+
+    if ($lines.Count -lt 2) {
+        return $null
+    }
+
+    if (!$lines[1].Trim().StartsWith("categories: ")) {
+        return $null    
+    }
+
+    return @{}
+}
+
+function Read-ItemsDebug()
+{
+    $itemsRulFilePath = "$HOME\OneDrive\Documents\OpenXcom\mods\XComFiles\Ruleset\items_XCOMFILES.rul"
+    $itemsRulLines = Get-Content $itemsRulFilePath
+    $lineCount = $itemsRulLines.Count
+
+    $i = 0;
+    while (-not $itemsRulLines[$i].Contains(" - type: ")) {
+        $i++;
+    }
+    $lastItemFirstLine = $i;
+    
+    [System.Collections.Generic.LinkedList`1[System.Collections.Hashtable]] $linkedList = New-Object System.Collections.Generic.LinkedList[HashTable]
+
+    for ($i = $lastItemFirstLine; $i -lt $lineCount; $i++) {
+        if ($itemsRulLines[$i].Contains(" - type: ")) {
+            $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)]
+            if ($null -ne $item) {
+                $linkedList.Add($item)
+            }
+            $lastItemFirstLine = $i
+        }
+
+        if ($i % 5000 -eq 0) {
+            Write-Host "Reading line $i/$lineCount"
+        }
+
+    }
+    Write-Host $linkedList.Count;
+}
+
 Export-ModuleMember -Function * -Cmdlet * -Alias * -Variable *
