@@ -63,21 +63,12 @@ function Read-KeyValue([string] $line, [string[]] $keysIncluded, [hashtable] $it
 
 function Read-Item([string[]] $lines, [hashtable] $item) {
 
-    if ($lines.Count -lt 1) {
-        throw "Expected for the item being read to have at least one line"
-    }
+    if ($lines.Count -lt 1) { throw "Expected for the item being read to have at least one line" }
+    if (!$lines[0].TrimStart().StartsWith("- type: ")) { throw "Expected for the first line to start with '- type: '. Instead got: '$($lines[0])'" }
+    if ($lines.Count -lt 2) { return $null }
+    if (!$lines[1].TrimStart().StartsWith("categories: ")) { return $null }
 
-    if ($lines[0].Trim().StartsWith("- type: '")) {
-        throw "Expected for the first line to start with '- type: '. Instead got: $($lines[0])"
-    }
-
-    if ($lines.Count -lt 2) {
-        return $null
-    }
-
-    if (!$lines[1].Trim().StartsWith("categories: ")) {
-        return $null    
-    }
+    $lines = $lines | ForEach-Object { $_.Trim() } | Where-Object { !($_.StartsWith("#")) }
 
     return @{}
 }
@@ -94,10 +85,10 @@ function Read-ItemsDebug()
     }
     $lastItemFirstLine = $i;
     
-    [System.Collections.Generic.LinkedList`1[System.Collections.Hashtable]] $linkedList = New-Object System.Collections.Generic.LinkedList[HashTable]
+    [System.Collections.Generic.LinkedList`1[hashtable]] $linkedList = New-Object System.Collections.Generic.LinkedList[HashTable]
 
     for ($i = $lastItemFirstLine; $i -lt $lineCount; $i++) {
-        if ($itemsRulLines[$i].Contains(" - type: ")) {
+        if ($itemsRulLines[$i].TrimStart().StartsWith("- type: ")) {
             $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)]
             if ($null -ne $item) {
                 $linkedList.Add($item)
