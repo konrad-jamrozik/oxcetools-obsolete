@@ -292,6 +292,25 @@ function Read-ItemsMain {
 
     $StartTime = Get-Date
 
+    $defaults = @{
+        "size"       = @{ value = 0.0 };
+        "costBuy"    = @{ value = 0   };
+        "costSell"   = @{ value = 0   };
+        "weight"     = @{ value = 3   };
+        "kneelBonus" = @{ value = 115 };
+        "autoShots"  = @{ value = 1    ; dependentKey = "accuracyAuto"  }
+        "minRange"   = @{ value = 0   };
+        "autoRange"  = @{ value = 7    ; dependentKey = "accuracyAuto"  };
+        "snapRange"  = @{ value = 15   ; dependentKey = "accuracySnap"  };
+        "aimRange"   = @{ value = 200  ; dependentKey = "accuracyAimed" };
+        "dropoff"    = @{ value = 2   }
+
+        "shotgunBehavior" = @{ value = 0   ; dependentKey = "shotgunPellets" }
+        "shotgunSpread"   = @{ value = 100 ; dependentKey = "shotgunPellets" }
+        "shotgunChoke"    = @{ value = 100 ; dependentKey = "shotgunPellets" }        
+    }
+
+
     ($items, $itemsWithAmmoList, $clips, $itemsWithLoadedClip, $itemsOther) = Read-ItemsDebug
     Write-Host "Items count: $($items.Count)"
     Write-Host "Items with ammo list count: $($itemsWithAmmoList.Count)"
@@ -299,7 +318,12 @@ function Read-ItemsMain {
     Write-Host "Items with loaded clip count: $($itemsWithLoadedClip.Count)"
     Write-Host "Other items count: $($itemsOther.Count)"
 
-    Write-ItemsDataToCsv ($itemsWithLoadedClip + $itemsOther)
+    $itemsToOutput = ($itemsWithLoadedClip + $itemsOther)
+
+    Write-Host "Setting defaults"
+    $itemsToOutput.Keys | ForEach-Object { Set-Defaults $itemsToOutput.$_ $defaults }
+
+    Write-ItemsDataToCsv $itemsToOutput
 
     Write-Host "Elapsed: $(Elapsed $StartTime)"
 }
