@@ -89,6 +89,13 @@ function Read-LineData([string] $line) {
         $valueString
     }
 
+    # KJA TODO pass in as param
+    # note that list headers cannot be included here
+    if (@("size", "battleType", "bigSprite", "floorSprite", "handSprite", "bulletSprite", "fireSound", "hitSound", "hitAnimation", 
+    "armor", "attraction", "invHeight", "invWidth", "listOrder", "recoveryPoints") -contains $key) {
+        return $null
+    }
+
     return @($key, $value, $type)
 }
 
@@ -121,7 +128,9 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
         return $null 
     }
 
-    $lineData = $lines[2..$lines.Length] | ForEach-Object { ,@(Read-LineData $_) }
+    $lineData = $lines[2..$lines.Length] 
+    | ForEach-Object { ,@(Read-LineData $_) } 
+    | Where-Object { $null -ne $_[0] }
 
     $ht = @{ "name" = $name; "categories" = $categories }
     $listMode = $false
@@ -145,7 +154,9 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
         }
 
         if ($type -eq "listItem") {
-            if ($listMode -eq $false) { throw "Invalid state!" }
+            if ($listMode -eq $false) { 
+                Write-Host "deb"
+                throw "Invalid state!" }
 
             if ($key -eq "-") {
                 if ($list.ContainsKey("-")) {
@@ -192,9 +203,11 @@ function Read-ItemsDebug()
         $i++;
     }
     $lastItemFirstLine = $i;
-    $lastItemWithAmmo = $null;
-    
-    [System.Collections.Generic.LinkedList`1[hashtable]] $linkedList = New-Object System.Collections.Generic.LinkedList[HashTable]
+
+    $items = @{}
+    $itemsWithAmmoList = @{}
+    $clips = @{}
+    $itemsOther = @{}
 
     for ($i = $lastItemFirstLine; $i -lt $lineCount; $i++) {
         
@@ -205,18 +218,23 @@ function Read-ItemsDebug()
             if ($null -eq $item) {
                 continue;
             }
-            $linkedList.Add($item)
+            $items += @{ $item.name = $item }
             if ($item.ContainsKey("compatibleAmmo")) {
-                $lastItemWithAmmo = $item
-            }
-            if ($item.categories -contains "STR_CLIPS") {
-                $clipName = $item.name
-                $lastItemWithAmmoName = $lastItemWithAmmo.name
-                Write-Host "$lastItemWithAmmoName - $clipName"
-                $lastItemWithAmmoCompatAmmo = $lastItemWithAmmo.compatibleAmmo
-                # KJA TODO: link here the weapons to ammunitions, doing product, so, e.g.
-                # row 1: Shotgun with buckshot
-                # row 2: Shotgun with AP shells                
+                $itemsWithAmmoList += @{ $item.name = $item }
+                if ($item.categories -contains "STR_CLIPS") {
+                    throw "Invalid item!"
+                }
+            } elseif ($item.categories -contains "STR_CLIPS") {
+                $clips += @{ $item.name = $item }
+            } else {
+                if ($item.ContainsKey("battleType") -and $item.battleType -ne 0) {
+                    $itemsOther += @{ $item.name = $item }
+                    Write-Host "other item: $($item.name)"
+                } else {
+                    # Exclude Geoscape-only items
+                    # https://www.ufopaedia.org/index.php/Ruleset_Reference_Nightly_(OpenXcom)#Naming.2C_Categorization_and_Storage
+                }
+                
             }
         }
 
@@ -225,8 +243,52 @@ function Read-ItemsDebug()
         }
     }
 
+    $itemsWithLoadedClip = @{}
+
+    foreach ($itemWithAmmoList in $itemsWithAmmoList.values) {
+        Write-Host "Loading ammo into $($itemWithAmmoList.name)"
+        foreach ($clipName in $itemWithAmmoList.compatibleAmmo) {
+            [Hashtable] $itemClone = $itemWithAmmoList.Clone()
+            [Hashtable] $clipClone = $clips[$clipName].Clone()
+
+            $name = $itemClone.name + ($clipClone.name -replace $itemClone.name)
+            $itemClone.Remove("name")
+            $clipClone.Remove("name")
+            $clipClone.Remove("categories")
+            $weight = $itemClone.weight + $clipClone.weight
+            $itemClone.Remove("weight")
+            $clipClone.Remove("weight")
+            $costBuy = $itemClone.costBuy + $clipClone.costBuy
+            $itemClone.Remove("costBuy")
+            $clipClone.Remove("costBuy")            
+            $costSell = $itemClone.costSell + $clipClone.costsell
+            $itemClone.Remove("costSell")
+            $clipClone.Remove("costSell")  
+            $clipClone.Remove("costThrow")    
+            $itemClone.Remove("requires")
+            $clipClone.Remove("requires")            
+            $itemClone.Remove("requiresBuy")
+            $clipClone.Remove("requiresBuy")
+            
+            $itemClone += $clipClone
+
+            $itemClone.name = $name
+            $itemClone.weight = $weight
+            $itemClone.costBuy = $costBuy
+            $itemClone.costSell = $costSell
+
+            $itemsWithLoadedClip[$itemClone.name] = $itemClone
+
+        }
+    }
+
+    Write-Host "Items count: $($items.Count)"
+    Write-Host "Items with ammo list count: $($itemsWithAmmoList.Count)"
+    Write-Host "Clips count: $($clips.Count)"
+    Write-Host "Items with loaded clip count: $($itemsWithLoadedClip.Count)"
+    Write-Host "Other items count: $($itemsOther.Count)"
+
     Write-Host "Elapsed: $(Elapsed $StartTime)"
-    Write-Host $linkedList.Count;
 }
 
 function Elapsed([DateTime] $StartTime) {
