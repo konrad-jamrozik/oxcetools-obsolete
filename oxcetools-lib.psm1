@@ -133,7 +133,11 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
 
         if ($type -eq "listHeader") {
             if ($listMode -eq $true) {
-                $ht += @{ $listKey = $list }
+                if ($list.ContainsKey("-")) {
+                    $ht += @{ $listKey = $list["-"] }
+                } else {
+                    $ht += @{ $listKey = $list }
+                }
             }
             $listMode = $true
             $listKey = $key
@@ -156,7 +160,11 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
 
         if ($type -eq "keyValue") {
             if ($listMode -eq $true) {
-                $ht += @{ $listKey = $list }
+                if ($list.ContainsKey("-")) {
+                    $ht += @{ $listKey = $list["-"] }
+                } else {
+                    $ht += @{ $listKey = $list }
+                }
                 $listMode = $false
             } else {
                 $ht += @{ $key = $value }
@@ -205,20 +213,16 @@ function Read-ItemsDebug()
                 $clipName = $item.name
                 $lastItemWithAmmoName = $lastItemWithAmmo.name
                 Write-Host "$lastItemWithAmmoName - $clipName"
-                #$lastItemWithAmmoCompatAmmo = $lastItemWithAmmo.compatibleAmmo
+                $lastItemWithAmmoCompatAmmo = $lastItemWithAmmo.compatibleAmmo
+                # KJA TODO: link here the weapons to ammunitions, doing product, so, e.g.
+                # row 1: Shotgun with buckshot
+                # row 2: Shotgun with AP shells                
             }
-
-            
-            
-            # KJA TODO: link here the weapons to ammunitions, doing product, so, e.g.
-            # row 1: Shotgun with buckshot
-            # row 2: Shotgun with AP shells
         }
 
         if ($i % 5000 -eq 0) {
             Write-Host "Reading line $i/$lineCount"
         }
-
     }
 
     Write-Host "Elapsed: $(Elapsed $StartTime)"
