@@ -138,15 +138,20 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
             $listMode = $true
             $listKey = $key
             $list = @{}
-            if ($key -eq "compatibleAmmo") {
-                Write-Host "deb"
-            }
         }
 
         if ($type -eq "listItem") {
             if ($listMode -eq $false) { throw "Invalid state!" }
 
-            $list += @{ $key = $value }
+            if ($key -eq "-") {
+                if ($list.ContainsKey("-")) {
+                    $list["-"] += $value
+                } else {
+                    $list["-"] = @($value)
+                }
+            } else {
+                $list += @{ $key = $value }
+            }
         }
 
         if ($type -eq "keyValue") {
@@ -162,7 +167,7 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
     return $ht
 }
 
-# TODO handle special ammo cases. See e.g. STR_HUMAN_SONIC_HEAVY_CANNON
+# KJA Be aware there are not yet handled special ammo and double-nesting cases. See e.g. STR_HUMAN_SONIC_HEAVY_CANNON
 function Read-ItemsDebug()
 {
     $StartTime = Get-Date
@@ -179,6 +184,7 @@ function Read-ItemsDebug()
         $i++;
     }
     $lastItemFirstLine = $i;
+    $lastItemWithAmmo = $null;
     
     [System.Collections.Generic.LinkedList`1[hashtable]] $linkedList = New-Object System.Collections.Generic.LinkedList[HashTable]
 
@@ -187,13 +193,26 @@ function Read-ItemsDebug()
         if ($itemsRulLines[$i].TrimStart().StartsWith("- type: ")) {
         
             $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)] -categoriesIncluded $categoriesIncluded -categoriesExcluded $categoriesExcluded
-        
-            if ($null -ne $item) {
-                $linkedList.Add($item)
+            $lastItemFirstLine = $i
+            if ($null -eq $item) {
+                continue;
+            }
+            $linkedList.Add($item)
+            if ($item.ContainsKey("compatibleAmmo")) {
+                $lastItemWithAmmo = $item
+            }
+            if ($item.categories -contains "STR_CLIPS") {
+                $clipName = $item.name
+                $lastItemWithAmmoName = $lastItemWithAmmo.name
+                Write-Host "$lastItemWithAmmoName - $clipName"
+                #$lastItemWithAmmoCompatAmmo = $lastItemWithAmmo.compatibleAmmo
             }
 
-            $lastItemFirstLine = $i
             
+            
+            # KJA TODO: link here the weapons to ammunitions, doing product, so, e.g.
+            # row 1: Shotgun with buckshot
+            # row 2: Shotgun with AP shells
         }
 
         if ($i % 5000 -eq 0) {
