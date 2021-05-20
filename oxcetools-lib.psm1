@@ -63,13 +63,13 @@ function Read-KeyValue([string] $line, [string[]] $keysIncluded, [hashtable] $it
 
 function Read-LineData([string] $line) {
 
-    ($key, $valueString, $type) = if ($line.Contains(": ")) {
+    ($key, $valueString, $type) = if ($line.StartsWith(" ")) {
+        ("-", ($line -replace "- ").Trim(), "listItem") 
+    } elseif ($line.Contains(": ")) {
         $keyValuePair = $line -split ": "
         $key = $keyValuePair[0]
         ($key, $line.Substring(($key + ": ").Length), "keyValue")
-    } elseif ($line.StartsWith("- ")) {
-        ("-", $line.Substring("- ".Length), "listItem") 
-    } elseif ($line.EndsWith(":") -and !($line -contains "- ")) {
+    } elseif ($line.EndsWith(":") -and !($line.Contains("- "))) {
         $key = $line -replace ":"
         ($key, "", "listHeader")
     } else {
@@ -88,17 +88,17 @@ function Read-LineData([string] $line) {
 function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesIncluded, [string[]] $categoriesExcluded) {
 
     if ($lines.Count -lt 1) { throw "Expected for the item being read to have at least one line." }
-    if (!$lines[0].TrimStart().StartsWith("- type: ")) { throw "Expected for the first line to start with '- type: '. Instead got: '$($lines[0])'." }
+    if (!$lines[0].Substring(4).StartsWith("type: ")) { throw "Expected for the first line to start with '  - type: '. Instead got: '$($lines[0])'." }
 
     $lines = $lines 
-        | ForEach-Object { $_.Trim() }
         | Where-Object { !($_.StartsWith("#")) } # Remove comments
+        | ForEach-Object { $_.Substring(4).TrimEnd() }
 
     # If categories are missing
     if ($lines.Count -lt 2) { return $null }
-    if (!$lines[1].TrimStart().StartsWith("categories: ")) { return $null }
+    if (!$lines[1].StartsWith("categories: ")) { return $null }
 
-    $name = $lines[0].Substring("- type: ".Length)
+    $name = $lines[0].Substring("type: ".Length)
     $categories = (Read-LineData $lines[1])[1]
 
     $nocategoriesIncludedPresent = $null -eq (Compare-Object $categories $categoriesIncluded -IncludeEqual -ExcludeDifferent -PassThru)
@@ -115,9 +115,17 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
     $lineData = $lines[2..$lines.Length] | ForEach-Object { ,@(Read-LineData $_) }
 
     $ht = @{}
+    $listMode = $false
+    $listKey = ""
+    $list = @{}
 
     for ($i = 0; $i -lt $lineData.Count; $i++) {
         ($key, $value, $type) = $lineData[$i]
+
+        if ($type -eq "listHeader") {
+            $listKey = $key
+            $list = @{}
+        }
 
         if ($type -eq "keyValue") {
             $ht += @{ $key = $value }
