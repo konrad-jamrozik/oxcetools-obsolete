@@ -5,17 +5,9 @@ Set-StrictMode -Off
 
 <# 
 .SYNOPSIS
-Plumbs the values of $defaults entries into invocations of Get-Default.
-
-The defaults are to be based on source of OXCE:
-https://github.com/MeridianOXC/OpenXcom/blob/oxce-plus/src/Mod/RuleItem.cpp#L146
-to be passed as argument to Set-Defaults function.
-
-If you have problem deducing the default from the source, as a backup
-check this out:
-https://www.ufopaedia.org/index.php/Ruleset_Reference_Nightly_(OpenXcom)
-Likely you won't see zeros in the source because likely they are the default
-C++ implicit initalization of values.
+Sets the keys on $item to values ("defaults") if not present.
+The keys to set, the values to set, and if to set, is determined based on
+$defaults.
 #>
 function Set-Defaults([hashtable] $item, [hashtable] $defaults) {
     foreach ($defaultName in $defaults.Keys) {
@@ -40,7 +32,7 @@ function Set-Default([hashtable] $item, [string] $key, [int] $defaultValue, [str
 
 <#
 .SYNOPSIS
-Sets valueReads the "key: value" pair present on current $line into $item.
+Reads the "key: value" pair present on current $line into $item.
 It will read only keys present in $keysIncluded.
 It will skip the line if it is not of form "key: value"
 It will recognize lists of form "[a, b, c], like categories, and read them into array of strings instead of a string.

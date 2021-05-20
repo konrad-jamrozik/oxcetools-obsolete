@@ -23,8 +23,20 @@ param(
     $dirXcomFiles, # On Windows a path like "C:\Users\username\OneDrive\Documents\OpenXcom\mods\XComFiles"
     
     [string[]] 
-    $keysIncluded = @("name", "categories", "weight", "accuracyAuto", "accuracySnap", "accuracyAimed", "kneelBonus", 
-    "tuAuto", "tuSnap", "tuAimed", "minRange", "autoRange", "snapRange", "aimRange", "dropoff"),
+    $keysIncluded = @(
+
+    # Common keys    
+    "name", "categories", "weight", "costSell",
+
+    # Weapon keys
+    "twoHanded", "autoShots", "shotgunChoke", 
+    "accuracyAuto", "accuracySnap", "accuracyAimed", "kneelBonus", 
+    "tuAuto", "tuSnap", "tuAimed", "minRange", "autoRange", "snapRange", "aimRange", "dropoff", 
+    "compatibleAmmo",
+    
+    # Ammo keys
+    "power", "damageType", "shotgunBehavior", "shotgunSpread", "shotgunPellets"
+    ),
     
     [string[]] 
     $categoriesIncluded = @("STR_FIREARMS", "STR_LAUNCHERS", "STR_HEAVY_WEAPONS", "STR_INCENDIARIES", "STR_PISTOLS", 
@@ -46,12 +58,29 @@ Import-Module "$currentDir/oxcetools-lib.psm1" -Force
 # Inputs
 $itemsRulFilePath = "$dirXcomFiles\Ruleset\items_XCOMFILES.rul"
 
-<# For explanation of this data structure, 
-please see the comment on the function Set-Defaults in kj-project-oxcetools-lib.psm1. 
+<# 
+Default values to be used if not provided by the read item data.
+
+A value will be set only if it was not already read, and the dependentKey
+was read. This setting logic is captured in function Set-Defaults in kj-project-oxcetools-lib.psm1. 
+
+The defaults provided in the data structure were determined based on the following:
+
+1. The source of OXCE:
+https://github.com/MeridianOXC/OpenXcom/blob/oxce-plus/src/Mod/RuleItem.cpp#L146
+to be passed as argument to Set-Defaults function.
+
+Note likely you won't see zeros in the source because likely they are the default
+C++ implicit initalization of values.
+
+2. Any overrides of these defaults by the mod on which this script is applied, which is X-COM files.
+These defaults can be overriden by the mod according to https://www.ufopaedia.org/index.php/Ruleset_Reference_Nightly_(OpenXcom)
+
 #>
 $defaults = @{
     "weight"     = @{ value = 3   };
     "kneelBonus" = @{ value = 115 };
+    "autoShots"  = @{ value = 1    ; dependentKey = "accuracyAuto"  }
     "minRange"   = @{ value = 0   };
     "autoRange"  = @{ value = 7    ; dependentKey = "accuracyAuto"  };
     "snapRange"  = @{ value = 15   ; dependentKey = "accuracySnap"  };
@@ -64,8 +93,11 @@ $lineCount = $itemsRulLines.Count
 
 # This map will contain data of the items read from items_XCOMFILES.rul when the foreach loop below finishes.
 $items = @{}
-# Denotes that when we encounter next item (a line with "- type: "), then do not add currently constructed ite,
-# to $items map. At first there is no item being constructed, so it is set to true.
+# Denotes that the lines currently being read should be skipped until we encounter a next item.
+# We recognize we encountered a next item by reading a line with contents "- type: ".
+# At first it is set to $true, because we are yet to encounter first item while reading.
+# Later on this gets set to $true if conclude the item currently being read should be skipped, thus
+# making us skip over the rest of it, to optimize performance.
 $skipUntilNextItem = $true
 # Once we read "- type: " line, we will expect for the next line to be "categories: ", and will set this variable
 # to true. This is optimization. If we expect categories, and we won't find any, we will skip all lines of given item,
@@ -82,7 +114,7 @@ foreach ($line in $itemsRulLines) {
 
     $lineIndex++;
 
-    # When in debug mode, allow reviewing the script run interactively, after each 5000 lines read.
+    # When in debug mode, allows reviewing the script run interactively, after each 5000 lines read.
     if ($lineIndex % 5000 -eq 0) {
         Write-Host "Reading line $lineIndex/$lineCount"
         if ($DebugPreference -eq "Continue") {
@@ -102,8 +134,9 @@ foreach ($line in $itemsRulLines) {
     # Encounter new item data
     if ($line.StartsWith("- type: ")) {
         # Add previously read item data to the output map,
-        # unless we skipped current item, or were expecting to see 
-        # categories line (but instead suddenly got next item entry)
+        # unless:
+        # 1. we skipped current item, 
+        # or 2. we were expecting to read categories, but instead got next item entry. Note this happens if we encountered two new item lines in a row.
         if (!$skipUntilNextItem -and !$expectCategoriesOnNextLine) {
              
             $items.($currItem.name) = $currItem
@@ -119,12 +152,21 @@ foreach ($line in $itemsRulLines) {
         continue;
     }
 
+    # assert: Currently read line
+    # - is not acomment.
+    # - does not denote new item.
+
     # If we already deduced the currently processed item has to be skipped,
     # then skip current line.
     if ($skipUntilNextItem) {
         Write-Verbose "Skipping $lineIndex $line"
         continue;
     }
+
+    # assert: Currently read line
+    # - is not acomment.
+    # - does not denote new item.
+    # - should not be skipped, i.e. should be read
 
     # If we expected to see "categories" line but didn't find one,
     # then we skip the item.
