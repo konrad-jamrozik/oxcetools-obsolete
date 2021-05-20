@@ -32,7 +32,9 @@ param(
     "twoHanded", "autoShots", "shotgunChoke", 
     "accuracyAuto", "accuracySnap", "accuracyAimed", "kneelBonus", 
     "tuAuto", "tuSnap", "tuAimed", "minRange", "autoRange", "snapRange", "aimRange", "dropoff", 
-    "compatibleAmmo",
+    
+    # nested key, not yet supported
+    #"compatibleAmmo",
     
     # Ammo keys
     "power", "damageType", "shotgunBehavior", "shotgunSpread", "shotgunPellets"
