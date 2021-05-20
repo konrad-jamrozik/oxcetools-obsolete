@@ -3,7 +3,7 @@
 #>
 Set-StrictMode -Off
 
-<# 
+<#
 .SYNOPSIS
 Sets the keys on $item to values ("defaults") if not present.
 The keys to set, the values to set, and if to set, is determined based on
@@ -19,7 +19,7 @@ function Set-Defaults([hashtable] $item, [hashtable] $defaults) {
 
 <#
 .SYNOPSIS
-Sets value of $key on $item to $defaultValue, only if the value is not already present AND $dependentKey 
+Sets value of $key on $item to $defaultValue, only if the value is not already present AND $dependentKey
 is present on the item.
 #>
 function Set-Default([hashtable] $item, [string] $key, [int] $defaultValue, [string] $dependentKey = "") {
@@ -66,7 +66,7 @@ function Read-LineData([string] $line) {
     ($key, $valueString, $type) = if ($line.StartsWith(" ")) {
 
         if ($line.Contains("- ")) {
-            ("-", ($line -replace "- ").Trim(), "listItem") 
+            ("-", ($line -replace "- ").Trim(), "listItem")
         } elseif ($line.Contains(": ")) {
             $keyValuePair = $line.Trim() -split ": "
             $key = $keyValuePair[0]
@@ -91,7 +91,7 @@ function Read-LineData([string] $line) {
 
     # KJA TODO pass in as param
     # note that list headers cannot be included here
-    if (@("size", "battleType", "bigSprite", "floorSprite", "handSprite", "bulletSprite", "fireSound", "hitSound", "hitAnimation", 
+    if (@("bigSprite", "floorSprite", "handSprite", "bulletSprite", "fireSound", "hitSound", "hitAnimation",
     "armor", "attraction", "invHeight", "invWidth", "listOrder", "recoveryPoints") -contains $key) {
         return $null
     }
@@ -104,10 +104,10 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
     if ($lines.Count -lt 1) { throw "Expected for the item being read to have at least one line." }
     if (!$lines[0].Substring(4).StartsWith("type: ")) { throw "Expected for the first line to start with '  - type: '. Instead got: '$($lines[0])'." }
 
-    $lines = $lines 
+    $lines = $lines
         | Where-Object { !($_.StartsWith("#")) } # Remove comments
         | Where-Object { $_.Length -ge 4 }
-        | ForEach-Object { 
+        | ForEach-Object {
             $_.Substring(4).TrimEnd() }
 
     # If categories are missing
@@ -118,18 +118,18 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
     $categories = (Read-LineData $lines[1])[1]
 
     $nocategoriesIncludedPresent = $null -eq (Compare-Object $categories $categoriesIncluded -IncludeEqual -ExcludeDifferent -PassThru)
-    if ($nocategoriesIncludedPresent) { 
+    if ($nocategoriesIncludedPresent) {
         Write-Debug "No included categories ($categoriesIncluded) present in $name. Categories present: $categories"
-        return $null 
+        return $null
     }
     $excludedCategoriesPresent = $null -ne (Compare-Object $categories $categoriesExcluded -IncludeEqual -ExcludeDifferent -PassThru)
-    if ($excludedCategoriesPresent) { 
+    if ($excludedCategoriesPresent) {
         Write-Debug "Excluded categories ($categoriesExcluded) present in $name. Categories present: $categories"
-        return $null 
+        return $null
     }
 
-    $lineData = $lines[2..$lines.Length] 
-    | ForEach-Object { ,@(Read-LineData $_) } 
+    $lineData = $lines[2..$lines.Length]
+    | ForEach-Object { ,@(Read-LineData $_) }
     | Where-Object { $null -ne $_[0] }
 
     $ht = @{ "name" = $name; "categories" = $categories }
@@ -154,9 +154,7 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
         }
 
         if ($type -eq "listItem") {
-            if ($listMode -eq $false) { 
-                Write-Host "deb"
-                throw "Invalid state!" }
+            if ($listMode -eq $false) { throw "Invalid state!" }
 
             if ($key -eq "-") {
                 if ($list.ContainsKey("-")) {
@@ -189,9 +187,8 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
 # KJA Be aware there are not yet handled special ammo and double-nesting cases. See e.g. STR_HUMAN_SONIC_HEAVY_CANNON
 function Read-ItemsDebug()
 {
-    $StartTime = Get-Date
     [string[]] $categoriesIncluded = @("STR_CONCEALABLE")
-    
+
     [string[]] $categoriesExcluded = @("STR_MELEE", "STR_GRENADES")
 
     $itemsRulFilePath = "$HOME\OneDrive\Documents\OpenXcom\mods\XComFiles\Ruleset\items_XCOMFILES.rul"
@@ -210,9 +207,9 @@ function Read-ItemsDebug()
     $itemsOther = @{}
 
     for ($i = $lastItemFirstLine; $i -lt $lineCount; $i++) {
-        
+
         if ($itemsRulLines[$i].TrimStart().StartsWith("- type: ")) {
-        
+
             $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)] -categoriesIncluded $categoriesIncluded -categoriesExcluded $categoriesExcluded
             $lastItemFirstLine = $i
             if ($null -eq $item) {
@@ -234,7 +231,7 @@ function Read-ItemsDebug()
                     # Exclude Geoscape-only items
                     # https://www.ufopaedia.org/index.php/Ruleset_Reference_Nightly_(OpenXcom)#Naming.2C_Categorization_and_Storage
                 }
-                
+
             }
         }
 
@@ -251,28 +248,34 @@ function Read-ItemsDebug()
             [Hashtable] $itemClone = $itemWithAmmoList.Clone()
             [Hashtable] $clipClone = $clips[$clipName].Clone()
 
-            $name = $itemClone.name + ($clipClone.name -replace $itemClone.name)
+            $name = $itemClone.name + "_" + ($clipClone.name -replace $itemClone.name)
             $itemClone.Remove("name")
             $clipClone.Remove("name")
-            $clipClone.Remove("categories")
+            $size = $itemClone.size + $clipClone.size
+            $itemClone.Remove("size")
+            $clipClone.Remove("size")
             $weight = $itemClone.weight + $clipClone.weight
             $itemClone.Remove("weight")
             $clipClone.Remove("weight")
             $costBuy = $itemClone.costBuy + $clipClone.costBuy
             $itemClone.Remove("costBuy")
-            $clipClone.Remove("costBuy")            
+            $clipClone.Remove("costBuy")
             $costSell = $itemClone.costSell + $clipClone.costsell
             $itemClone.Remove("costSell")
-            $clipClone.Remove("costSell")  
-            $clipClone.Remove("costThrow")    
+            $clipClone.Remove("costSell")
+            $clipClone.Remove("costThrow")
             $itemClone.Remove("requires")
-            $clipClone.Remove("requires")            
+            $clipClone.Remove("requires")
             $itemClone.Remove("requiresBuy")
             $clipClone.Remove("requiresBuy")
-            
+            $itemClone.Remove("compatibleAmmo")
+            $clipClone.Remove("categories")
+            $clipClone.Remove("battleType")
+
             $itemClone += $clipClone
 
             $itemClone.name = $name
+            $itemClone.size = $size
             $itemClone.weight = $weight
             $itemClone.costBuy = $costBuy
             $itemClone.costSell = $costSell
@@ -282,13 +285,59 @@ function Read-ItemsDebug()
         }
     }
 
+    return ($items, $itemsWithAmmoList, $clips, $itemsWithLoadedClip, $itemsOther)
+}
+
+function Read-ItemsMain {
+
+    $StartTime = Get-Date
+
+    ($items, $itemsWithAmmoList, $clips, $itemsWithLoadedClip, $itemsOther) = Read-ItemsDebug
     Write-Host "Items count: $($items.Count)"
     Write-Host "Items with ammo list count: $($itemsWithAmmoList.Count)"
     Write-Host "Clips count: $($clips.Count)"
     Write-Host "Items with loaded clip count: $($itemsWithLoadedClip.Count)"
     Write-Host "Other items count: $($itemsOther.Count)"
 
+    Write-ItemsDataToCsv ($itemsWithLoadedClip + $itemsOther)
+
     Write-Host "Elapsed: $(Elapsed $StartTime)"
+}
+
+function Write-ItemsDataToCsv($items) {
+
+    $keysIncluded = @(
+    # Common keys
+    "name", "categories", "weight", "size", "costSell", "costBuy", "battleType",
+
+    # Weapon keys
+    "twoHanded", "autoShots", "sprayWaypoints", "shotgunChoke",
+    "accuracyCloseQuarters", "accuracyAuto", "accuracySnap", "accuracyAimed",
+    "kneelBonus",
+    "tuLoad", "tuAuto", "tuSnap", "tuAimed",
+    "minRange", "autoRange", "snapRange", "aimRange", "dropoff",
+
+    # Ammo keys
+    "power", "damageType", "shotgunBehavior", "shotgunSpread", "shotgunPellets"
+    )
+
+    $outputCsv = "~/items_2.csv"
+    Write-Host "Saving to $outputCsv"
+    # Note: Export-CSV doesn't support hashtables, per:
+    # https://github.com/PowerShell/PowerShell/issues/10999
+    # But it supports [PSCustomObject]s, so we can convert hashtables to them first, per:
+    # https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-hashtable?view=powershell-7.1#creating-objects
+    # https://powershellexplained.com/2016-10-28-powershell-everything-you-wanted-to-know-about-pscustomobject/
+    $keysIncluded | ForEach-Object { $csvHeaderRow = [ordered]@{} } { $csvHeaderRow.$_ = "" }
+    [PSCustomObject]$csvHeaderRow | Export-CSV -Path $outputCsv -UseQuotes Never -Delimiter ","
+    $items.Keys | ForEach-Object {
+        $item = $items.$_
+        $csvItem = $item.Clone()
+        $csvItem.categories = $item.categories -join ";"
+        # The ordering of properties will be deduced from the $csvHeaderRow above. See:
+        # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-csv?view=powershell-7.1#notes
+        [PSCustomObject]$csvItem | Export-Csv -Path $outputCsv -Append -Force -UseQuotes Never -Delimiter ","
+    }
 }
 
 function Elapsed([DateTime] $StartTime) {
