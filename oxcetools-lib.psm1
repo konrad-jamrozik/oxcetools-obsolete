@@ -61,20 +61,80 @@ function Read-KeyValue([string] $line, [string[]] $keysIncluded, [hashtable] $it
     $item.$key = $value
 }
 
-function Read-Item([string[]] $lines, [hashtable] $item) {
+function Read-LineData([string] $line) {
+
+    ($key, $valueString, $type) = if ($line.Contains(": ")) {
+        $keyValuePair = $line -split ": "
+        $key = $keyValuePair[0]
+        ($key, $line.Substring(($key + ": ").Length), "keyValue")
+    } elseif ($line.StartsWith("- ")) {
+        ("-", $line.Substring("- ".Length), "listItem") 
+    } elseif ($line.EndsWith(":") -and !($line -contains "- ")) {
+        $key = $line -replace ":"
+        ($key, "", "listHeader")
+    } else {
+        throw "Unexpected `$line format: $line"
+    }
+
+    $value = if ($valueString.StartsWith("[")) {
+        $valueString.Replace("[", "").Replace("]", "") -split ", "
+    } else {
+        $valueString
+    }
+
+    return @($key, $value, $type)
+}
+
+function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesIncluded, [string[]] $categoriesExcluded) {
 
     if ($lines.Count -lt 1) { throw "Expected for the item being read to have at least one line." }
     if (!$lines[0].TrimStart().StartsWith("- type: ")) { throw "Expected for the first line to start with '- type: '. Instead got: '$($lines[0])'." }
+
+    $lines = $lines 
+        | ForEach-Object { $_.Trim() }
+        | Where-Object { !($_.StartsWith("#")) } # Remove comments
+
+    # If categories are missing
     if ($lines.Count -lt 2) { return $null }
     if (!$lines[1].TrimStart().StartsWith("categories: ")) { return $null }
 
-    $lines = $lines | ForEach-Object { $_.Trim() } | Where-Object { !($_.StartsWith("#")) }
+    $name = $lines[0].Substring("- type: ".Length)
+    $categories = (Read-LineData $lines[1])[1]
 
-    return @{}
+    $nocategoriesIncludedPresent = $null -eq (Compare-Object $categories $categoriesIncluded -IncludeEqual -ExcludeDifferent -PassThru)
+    if ($nocategoriesIncludedPresent) { 
+        Write-Debug "No included categories ($categoriesIncluded) present in $name. Categories present: $categories"
+        return $null 
+    }
+    $excludedCategoriesPresent = $null -ne (Compare-Object $categories $categoriesExcluded -IncludeEqual -ExcludeDifferent -PassThru)
+    if ($excludedCategoriesPresent) { 
+        Write-Debug "Excluded categories ($categoriesExcluded) present in $name. Categories present: $categories"
+        return $null 
+    }
+
+    $lineData = $lines[2..$lines.Length] | ForEach-Object { ,@(Read-LineData $_) }
+
+    $ht = @{}
+
+    for ($i = 0; $i -lt $lineData.Count; $i++) {
+        ($key, $value, $type) = $lineData[$i]
+
+        if ($type -eq "keyValue") {
+            $ht += @{ $key = $value }
+        }
+    }
+
+    return $ht
 }
 
+# TODO handle special ammo cases. See e.g. STR_HUMAN_SONIC_HEAVY_CANNON
 function Read-ItemsDebug()
 {
+    $StartTime = Get-Date
+    [string[]] $categoriesIncluded = @("STR_CONCEALABLE")
+    
+    [string[]] $categoriesExcluded = @("")
+
     $itemsRulFilePath = "$HOME\OneDrive\Documents\OpenXcom\mods\XComFiles\Ruleset\items_XCOMFILES.rul"
     $itemsRulLines = Get-Content $itemsRulFilePath
     $lineCount = $itemsRulLines.Count
@@ -91,7 +151,7 @@ function Read-ItemsDebug()
         
         if ($itemsRulLines[$i].TrimStart().StartsWith("- type: ")) {
         
-            $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)]
+            $item = Read-Item -lines $itemsRulLines[$lastItemFirstLine..($i-1)] -categoriesIncluded $categoriesIncluded -categoriesExcluded $categoriesExcluded
         
             if ($null -ne $item) {
                 $linkedList.Add($item)
@@ -106,7 +166,15 @@ function Read-ItemsDebug()
         }
 
     }
+
+    Write-Host "Elapsed: $(Elapsed $StartTime)"
     Write-Host $linkedList.Count;
+}
+
+function Elapsed([DateTime] $StartTime) {
+    $ElapsedTime = $(Get-Date) - $StartTime
+    $FormattedElapsedTime = "{0:HH:mm:ss}" -f ([datetime]$ElapsedTime.Ticks)
+    return $FormattedElapsedTime
 }
 
 Export-ModuleMember -Function * -Cmdlet * -Alias * -Variable *
