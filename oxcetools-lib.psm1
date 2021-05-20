@@ -176,8 +176,9 @@ function Read-Item([string[]] $lines, [hashtable] $item, [string[]] $categoriesI
                 }
                 $listMode = $false
             } else {
-                $ht += @{ $key = $value }
+                # There was no list, so nothing to do with that regard.
             }
+            $ht += @{ $key = $value }
         }
     }
 
@@ -189,7 +190,7 @@ function Read-ItemsDebug()
 {
     [string[]] $categoriesIncluded = @("STR_CONCEALABLE")
 
-    [string[]] $categoriesExcluded = @("STR_MELEE", "STR_GRENADES")
+    [string[]] $categoriesExcluded = @("STR_MELEE", "STR_GRENADES", "STR_MEDICAL")
 
     $itemsRulFilePath = "$HOME\OneDrive\Documents\OpenXcom\mods\XComFiles\Ruleset\items_XCOMFILES.rul"
     $itemsRulLines = Get-Content $itemsRulFilePath
@@ -231,7 +232,6 @@ function Read-ItemsDebug()
                     # Exclude Geoscape-only items
                     # https://www.ufopaedia.org/index.php/Ruleset_Reference_Nightly_(OpenXcom)#Naming.2C_Categorization_and_Storage
                 }
-
             }
         }
 
@@ -251,16 +251,16 @@ function Read-ItemsDebug()
             $name = $itemClone.name + "_" + ($clipClone.name -replace $itemClone.name)
             $itemClone.Remove("name")
             $clipClone.Remove("name")
-            $size = $itemClone.size + $clipClone.size
+            $size = [math]::Round([float]$itemClone.size + $clipClone.size, 3)
             $itemClone.Remove("size")
             $clipClone.Remove("size")
-            $weight = $itemClone.weight + $clipClone.weight
+            $weight = [int]$itemClone.weight + $clipClone.weight
             $itemClone.Remove("weight")
             $clipClone.Remove("weight")
-            $costBuy = $itemClone.costBuy + $clipClone.costBuy
+            $costBuy = [int]$itemClone.costBuy + $clipClone.costBuy
             $itemClone.Remove("costBuy")
             $clipClone.Remove("costBuy")
-            $costSell = $itemClone.costSell + $clipClone.costsell
+            $costSell = [int]$itemClone.costSell + $clipClone.costsell
             $itemClone.Remove("costSell")
             $clipClone.Remove("costSell")
             $clipClone.Remove("costThrow")
@@ -294,8 +294,6 @@ function Read-ItemsMain {
 
     $defaults = @{
         "size"       = @{ value = 0.0 };
-        "costBuy"    = @{ value = 0   };
-        "costSell"   = @{ value = 0   };
         "weight"     = @{ value = 3   };
         "kneelBonus" = @{ value = 115 };
         "autoShots"  = @{ value = 1    ; dependentKey = "accuracyAuto"  }
@@ -353,13 +351,14 @@ function Write-ItemsDataToCsv($items) {
     # https://docs.microsoft.com/en-us/powershell/scripting/learn/deep-dives/everything-about-hashtable?view=powershell-7.1#creating-objects
     # https://powershellexplained.com/2016-10-28-powershell-everything-you-wanted-to-know-about-pscustomobject/
     $keysIncluded | ForEach-Object { $csvHeaderRow = [ordered]@{} } { $csvHeaderRow.$_ = "" }
+    # Need to output this empty row to force ordering of properties upon calls to Export-Csv below, per:
+    # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-csv?view=powershell-7.1#notes
     [PSCustomObject]$csvHeaderRow | Export-CSV -Path $outputCsv -UseQuotes Never -Delimiter ","
     $items.Keys | ForEach-Object {
         $item = $items.$_
         $csvItem = $item.Clone()
         $csvItem.categories = $item.categories -join ";"
-        # The ordering of properties will be deduced from the $csvHeaderRow above. See:
-        # https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.utility/export-csv?view=powershell-7.1#notes
+
         [PSCustomObject]$csvItem | Export-Csv -Path $outputCsv -Append -Force -UseQuotes Never -Delimiter ","
     }
 }
