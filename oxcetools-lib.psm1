@@ -295,14 +295,14 @@ function Read-ItemsMain {
     $defaults = @{
         "size"       = @{ value = 0.0 };
         "weight"     = @{ value = 3   };
-        "kneelBonus" = @{ value = 115 };
         "autoShots"  = @{ value = 1    ; dependentKey = "accuracyAuto"  }
+        "kneelBonus" = @{ value = 115 };
         "minRange"   = @{ value = 0   };
         "autoRange"  = @{ value = 7    ; dependentKey = "accuracyAuto"  };
         "snapRange"  = @{ value = 15   ; dependentKey = "accuracySnap"  };
         "aimRange"   = @{ value = 200  ; dependentKey = "accuracyAimed" };
         "dropoff"    = @{ value = 2   }
-
+        "twoHanded"  = @{ value = "false" };
         "shotgunBehavior" = @{ value = 0   ; dependentKey = "shotgunPellets" }
         "shotgunSpread"   = @{ value = 100 ; dependentKey = "shotgunPellets" }
         "shotgunChoke"    = @{ value = 100 ; dependentKey = "shotgunPellets" }        
