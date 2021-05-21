@@ -22,7 +22,7 @@ function Set-Defaults([hashtable] $item, [hashtable] $defaults) {
 Sets value of $key on $item to $defaultValue, only if the value is not already present AND $dependentKey
 is present on the item.
 #>
-function Set-Default([hashtable] $item, [string] $key, [int] $defaultValue, [string] $dependentKey = "") {
+function Set-Default([hashtable] $item, [string] $key, [object] $defaultValue, [string] $dependentKey = "") {
     if (("" -eq $dependentKey) -or ($item.ContainsKey($dependentKey))) {
         if (!$item.ContainsKey($key)) {
             $item.$key = $defaultValue
@@ -370,3 +370,5 @@ function Elapsed([DateTime] $StartTime) {
 }
 
 Export-ModuleMember -Function * -Cmdlet * -Alias * -Variable *
+
+# TODO: damageAlter / armorEffectiveness
