@@ -377,3 +377,4 @@ Export-ModuleMember -Function * -Cmdlet * -Alias * -Variable *
 # - reaction bonus
 # - bug: taser__clip has 200 aim range. 
 # This is because it has it missing, so default is 200. But it has maxRange: 5, not yet taken int oaccount.
+# - add ammo clip size
