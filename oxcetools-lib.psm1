@@ -371,4 +371,5 @@ function Elapsed([DateTime] $StartTime) {
 
 Export-ModuleMember -Function * -Cmdlet * -Alias * -Variable *
 
-# TODO: damageAlter / armorEffectiveness
+# KJA TODO: damageAlter / armorEffectiveness
+# KJA TODO: max range
